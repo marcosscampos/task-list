@@ -16,9 +16,15 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.android.synthetic.main.activity_create.*
 import kotlinx.android.synthetic.main.task_card.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import java.util.*
+import kotlin.collections.ArrayList
 
 class CreateActivity : AppCompatActivity() {
     private var TAG = "CreateActivity"
@@ -55,6 +61,7 @@ class CreateActivity : AppCompatActivity() {
 
                 task.countryId = id.toString()
             }
+
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
@@ -73,36 +80,43 @@ class CreateActivity : AppCompatActivity() {
         finish()
     }
 
-    private fun getCountries() {
+    private fun getCountries() = CoroutineScope(Dispatchers.IO).launch {
         progressbar.visibility = View.VISIBLE
 
-        val call = RetrofitService.getInstance().create(IPaisService::class.java)
-        call.getAllCountries().enqueue(object : Callback<ArrayList<Paises>> {
-            override fun onResponse(
-                call: Call<ArrayList<Paises>>,
-                response: Response<ArrayList<Paises>>
-            ) {
-                val paises = response.body()!!
-                val nome: ArrayList<String> = ArrayList()
+        try {
+            val call = RetrofitService.getInstance().create(IPaisService::class.java)
+            call.getAllCountries().enqueue(object : Callback<ArrayList<Paises>> {
+                override fun onResponse(
+                    call: Call<ArrayList<Paises>>,
+                    response: Response<ArrayList<Paises>>
+                ) {
+                    val paises = response.body()
 
-                paises.forEach {
-                    nome.add(it.nome.abreviado)
+                    val nome: ArrayList<String> = ArrayList()
+
+                    paises?.forEach {
+                        nome.add(it.nome.abreviado)
+                    }
+
+                    spinner.adapter = ArrayAdapter(
+                        this@CreateActivity,
+                        R.layout.support_simple_spinner_dropdown_item,
+                        nome
+                    )
+                    progressbar.visibility = View.GONE
                 }
 
-                spinner.adapter = ArrayAdapter(
-                    this@CreateActivity,
-                    R.layout.support_simple_spinner_dropdown_item,
-                    nome
-                )
-                progressbar.visibility = View.GONE
+                override fun onFailure(call: Call<ArrayList<Paises>>, t: Throwable) {
+                    makeText("Falha ao listar os países.")
+                    progressbar.visibility = View.GONE
+                }
+            })
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                Log.d(TAG, "getCountries: ${e.message}")
+                makeText(e.message.toString())
             }
-
-            override fun onFailure(call: Call<ArrayList<Paises>>, t: Throwable) {
-                makeText("Falha ao listar os países.")
-                Log.e(TAG, "onFailure: ${t.message}")
-                progressbar.visibility = View.GONE
-            }
-        })
+        }
     }
 
     private fun registerTask() {

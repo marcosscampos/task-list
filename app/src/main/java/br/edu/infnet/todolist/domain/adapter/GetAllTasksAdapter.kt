@@ -18,6 +18,10 @@ import com.google.android.material.button.MaterialButton
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class GetAllTasksAdapter(
     private val context: Context,
@@ -85,7 +89,6 @@ class GetAllTasksAdapter(
         val builder = AlertDialog.Builder(context)
         builder.setTitle(task.title)
         builder.setMessage(getString(task))
-
         db.collection(userId).document(id).get().addOnSuccessListener {
             if (it.exists()) {
                 task.title = it.getString("title").toString()

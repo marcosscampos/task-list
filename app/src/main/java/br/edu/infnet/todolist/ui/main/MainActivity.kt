@@ -153,7 +153,6 @@ class MainActivity : AppCompatActivity(), SwipeRefreshLayout.OnRefreshListener {
                     val tarefa = item.toObject(Task::class.java)
                     tarefas.add(tarefa)
                 }
-
                 recyclerView.layoutManager = layoutManager
                 recyclerView.adapter = GetAllTasksAdapter(this@MainActivity, tarefas, db)
                 swipe.isRefreshing = false

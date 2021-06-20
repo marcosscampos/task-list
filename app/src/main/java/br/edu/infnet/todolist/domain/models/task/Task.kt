@@ -2,7 +2,6 @@ package br.edu.infnet.todolist.domain.models.task
 
 import com.google.firebase.firestore.DocumentId
 import com.google.gson.annotations.SerializedName
-import java.time.LocalDate
 import java.util.*
 
 data class Task(

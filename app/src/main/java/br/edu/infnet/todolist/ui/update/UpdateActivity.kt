@@ -16,9 +16,16 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.android.synthetic.main.activity_create.*
 import kotlinx.android.synthetic.main.activity_update.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
 
 class UpdateActivity : AppCompatActivity() {
     private var TAG = "UpdateActivity"
@@ -52,7 +59,7 @@ class UpdateActivity : AppCompatActivity() {
                 id: Long
             ) {
 
-                task.countryId = id.toString()
+                task.countryId = position.toString()
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {}
@@ -80,37 +87,44 @@ class UpdateActivity : AppCompatActivity() {
         finish()
     }
 
-    private fun getCountries() {
+    private fun getCountries() = CoroutineScope(Dispatchers.IO).launch {
         progressbar.visibility = View.VISIBLE
 
-        val call = RetrofitService.getInstance().create(IPaisService::class.java)
-        call.getAllCountries().enqueue(object : Callback<ArrayList<Paises>> {
-            override fun onResponse(
-                call: Call<ArrayList<Paises>>,
-                response: Response<ArrayList<Paises>>
-            ) {
-                val paises = response.body()!!
-                val nome: ArrayList<String> = ArrayList()
+        try {
+            val call = RetrofitService.getInstance().create(IPaisService::class.java)
+            call.getAllCountries().enqueue(object : Callback<ArrayList<Paises>> {
+                override fun onResponse(
+                    call: Call<ArrayList<Paises>>,
+                    response: Response<ArrayList<Paises>>
+                ) {
+                    val paises = response.body()!!
+                    val nome: ArrayList<String> = ArrayList()
 
-                paises.forEach {
-                    nome.add(it.nome.abreviado)
+                    paises.forEach {
+                        nome.add(it.nome.abreviado)
+                    }
+
+                    spinner.adapter = ArrayAdapter(
+                        this@UpdateActivity,
+                        R.layout.support_simple_spinner_dropdown_item,
+                        nome
+                    )
+                    spinner.setSelection(task.countryId.toInt())
+                    progressbar.visibility = View.GONE
                 }
 
-                spinner.adapter = ArrayAdapter(
-                    this@UpdateActivity,
-                    R.layout.support_simple_spinner_dropdown_item,
-                    nome
-                )
-                spinner.setSelection(task.countryId.toInt())
-                progressbar.visibility = View.GONE
+                override fun onFailure(call: Call<ArrayList<Paises>>, t: Throwable) {
+                    makeText("Falha ao listar os países.")
+                    Log.e(TAG, "onFailure: ${t.message}")
+                    progressbar.visibility = View.GONE
+                }
+            })
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                Log.d(TAG, "getCountries: ${e.message}")
+                makeText(e.message.toString())
             }
-
-            override fun onFailure(call: Call<ArrayList<Paises>>, t: Throwable) {
-                makeText("Falha ao listar os países.")
-                Log.e(TAG, "onFailure: ${t.message}")
-                progressbar.visibility = View.GONE
-            }
-        })
+        }
     }
 
     private fun update() {
@@ -129,7 +143,7 @@ class UpdateActivity : AppCompatActivity() {
         }
 
         if (task.title.isNotEmpty() && task.description.isNotEmpty()) {
-            println("TASK ID - " + task.countryId)
+            updateTask(task_id)
         }
     }
 
@@ -147,44 +161,50 @@ class UpdateActivity : AppCompatActivity() {
         return str.setError(error)
     }
 
-    private fun returnDataFromFirestore(id: String) {
+    private fun returnDataFromFirestore(id: String) = CoroutineScope(Dispatchers.IO).launch {
+        try {
+            db.collection(userId).document(id).get().addOnSuccessListener {
+                if (it.exists()) {
+                    task.title = it.getString("title").toString()
+                    task.description = it.getString("description").toString()
+                    task.countryId = it.getString("countryId").toString()
 
-        db.collection(userId).document(id).get().addOnSuccessListener {
-            if (it.exists()) {
-                task.title = it.getString("title").toString()
-                task.description = it.getString("description").toString()
-                task.countryId = it.getString("countryId").toString()
-
-                editTitleUpdate.setText(task.title)
-                editDescriptionUpdate.setText(task.description)
+                    editTitleUpdate.setText(task.title)
+                    editDescriptionUpdate.setText(task.description)
+                }
+            }.addOnFailureListener {
+                makeText("Erro ao retornar os dados.")
             }
-        }.addOnFailureListener {
-            makeText("Erro ao retornar os dados.")
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                makeText(e.message.toString())
+            }
         }
     }
 
-//    private fun updateTask(id: String) {
-//        var title = task.title
-//        var description = task.description
-//        var country = spinner.selectedItem.toString()
-//        var country_id = task.countryId
-//
-//        db.collection(userId).document(id).addSnapshotListener { documents, e ->
-//            if (e != null) return@addSnapshotListener
-//
-//            val tarefas = ArrayList<Task>()
-//
-//            for (doc in documents!!) {
-//                val tarefa = doc.toObject(Task::class.java)
-//                tarefas.add(tarefa)
-//            }
-//
-//            for (tarefa in tarefas) {
-//                title = tarefa.title
-//                description = tarefa.description
-//                country = tarefa.country
-//                country_id = tarefa.countryId
-//            }
-//        }
-//    }
+    private fun updateTask(id: String) = CoroutineScope(Dispatchers.IO).launch {
+        val taskMap: HashMap<String, Any> = HashMap()
+        taskMap["title"] = task.title
+        taskMap["description"] = task.description
+        taskMap["country"] = spinner.selectedItem.toString()
+        taskMap["countryId"] = task.countryId
+        taskMap["date"] = task.date
+
+        try{
+            db.collection(userId).document(id).set(taskMap)
+                .addOnSuccessListener {
+                    makeText("Tarefa Atualizada!")
+                    finish()
+                }
+                .addOnFailureListener {
+                    makeText(it.message.toString())
+                }
+
+
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                makeText(e.message.toString())
+            }
+        }
+    }
 }
