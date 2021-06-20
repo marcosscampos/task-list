@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Task List</string>
+    <string name="title_activity_login">LoginActivity</string>
+    <string name="lorem">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus porta facilisis tellus, in maximus ligula lobortis efficitur. Sed egestas rhoncus iaculis. Nunc non eleifend arcu. Maecenas dictum quam semper condimentum eleifend. Mauris tempor ante vitae diam aliquet, id viverra lacus varius.</string>
+    <string name="open">Open</string>
+    <string name="close">Close</string>
+</resources>
