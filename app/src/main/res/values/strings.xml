@@ -4,4 +4,6 @@
     <string name="lorem">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus porta facilisis tellus, in maximus ligula lobortis efficitur. Sed egestas rhoncus iaculis. Nunc non eleifend arcu. Maecenas dictum quam semper condimentum eleifend. Mauris tempor ante vitae diam aliquet, id viverra lacus varius.</string>
     <string name="open">Open</string>
     <string name="close">Close</string>
+    <string name="facebook_app_id">3974819119234629</string>
+    <string name="fb_login_protocol_scheme">fb3974819119234629</string>
 </resources>

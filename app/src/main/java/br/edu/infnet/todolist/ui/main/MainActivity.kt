@@ -177,4 +177,9 @@ class MainActivity : AppCompatActivity(), SwipeRefreshLayout.OnRefreshListener {
         super.onStart()
         getTasks()
     }
+
+    override fun onResume() {
+        super.onResume()
+        getTasks()
+    }
 }

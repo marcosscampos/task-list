@@ -10,14 +10,20 @@ import androidx.appcompat.app.AppCompatActivity
 import br.edu.infnet.todolist.R
 import br.edu.infnet.todolist.ui.main.MainActivity
 import br.edu.infnet.todolist.ui.register.RegisterActivity
+import com.facebook.*
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import kotlinx.android.synthetic.main.activity_login.*
+import com.facebook.appevents.AppEventsLogger;
+import com.facebook.login.LoginResult
+import com.google.firebase.auth.FacebookAuthProvider
+
 
 class LoginActivity : AppCompatActivity() {
     private lateinit var auth: FirebaseAuth
+    private lateinit var callbackManager : CallbackManager
 
     private val EMAIL_VALIDATION_MSG = "Entre com um email válido"
     private val PASSWORD_VALIDATION_MSG = "Entre com uma senha válida"
@@ -34,7 +40,49 @@ class LoginActivity : AppCompatActivity() {
             cadastro()
         }
 
+        login_button.setOnClickListener {
+            setFacebookLogin()
+        }
+
         auth = Firebase.auth
+        callbackManager = CallbackManager.Factory.create()
+    }
+
+    private fun setFacebookLogin() {
+        login_button.setReadPermissions("email")
+        login_button.registerCallback(callbackManager, object: FacebookCallback<LoginResult>{
+            override fun onSuccess(result: LoginResult?) {
+                handleFacebookAccessToken(result?.accessToken!!)
+            }
+
+            override fun onCancel() {}
+
+            override fun onError(error: FacebookException?) {
+                makeText(error.toString())
+            }
+        })
+    }
+
+    private fun handleFacebookAccessToken(token: AccessToken) {
+        val credential = FacebookAuthProvider.getCredential(token.token)
+        auth.signInWithCredential(credential)
+            .addOnCompleteListener(this) {
+                if(it.isSuccessful) {
+                    makeText("Login feito com sucesso!")
+                    val mainIntent = Intent(this, MainActivity::class.java)
+                    startActivity(mainIntent)
+                    finish()
+                } else {
+                    makeText("Erro ao logar com o facebook.")
+                    Log.e("ERROR_FACEBOOK", "handleFacebookAccessToken: ${it.exception}", )
+                }
+            }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        callbackManager.onActivityResult(requestCode, resultCode, data)
     }
 
     public override fun onStart() {
