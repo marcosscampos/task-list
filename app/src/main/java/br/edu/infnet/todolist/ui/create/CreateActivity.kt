@@ -6,20 +6,21 @@ import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import br.edu.infnet.todolist.R
 import br.edu.infnet.todolist.domain.`interface`.IPaisService
+import br.edu.infnet.todolist.domain.exception.FirebaseError
 import br.edu.infnet.todolist.domain.models.pais.Paises
 import br.edu.infnet.todolist.domain.models.task.Task
 import br.edu.infnet.todolist.domain.service.RetrofitService
+import br.edu.infnet.todolist.ui.viewmodel.CountryViewModel
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.android.synthetic.main.activity_create.*
 import kotlinx.android.synthetic.main.task_card.*
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -51,6 +52,9 @@ class CreateActivity : AppCompatActivity() {
             userId = profile.uid
         }
 
+        val mViewModel = ViewModelProvider.NewInstanceFactory()
+            .create(CountryViewModel::class.java)
+
         spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(
                 parent: AdapterView<*>?,
@@ -67,56 +71,53 @@ class CreateActivity : AppCompatActivity() {
 
         db = FirebaseFirestore.getInstance()
         configActionBar()
-        getCountries()
+        initCountryList(mViewModel)
+
+        mViewModel.progressBar.observe(this) { isShown ->
+            if (isShown) {
+                progressbar.visibility = View.VISIBLE
+            } else {
+                progressbar.visibility = View.GONE
+            }
+        }
+
+        mViewModel.toast.observe(this) {
+            it?.let {
+                makeText(it)
+                mViewModel.onToastShown()
+            }
+        }
 
         createTask.setOnClickListener {
             registerTask()
         }
+    }
 
+    private fun initCountryList(mViewModel: CountryViewModel) {
+        lifecycleScope.launch {
+            mViewModel.init()
+            delay(500)
+            initAdapter(mViewModel)
+        }
+    }
+
+    private fun initAdapter(mViewModel: CountryViewModel) {
+        val paises = ArrayList<String>()
+        mViewModel.countryList.observe(this) { it ->
+            it.forEach {
+                paises.add(it.nome.abreviado)
+            }
+        }
+        spinner.adapter = ArrayAdapter(
+            this@CreateActivity,
+            R.layout.support_simple_spinner_dropdown_item,
+            paises
+        )
     }
 
     override fun onBackPressed() {
         super.onBackPressed()
         finish()
-    }
-
-    private fun getCountries() = CoroutineScope(Dispatchers.IO).launch {
-        progressbar.visibility = View.VISIBLE
-
-        try {
-            val call = RetrofitService.getInstance().create(IPaisService::class.java)
-            call.getAllCountries().enqueue(object : Callback<ArrayList<Paises>> {
-                override fun onResponse(
-                    call: Call<ArrayList<Paises>>,
-                    response: Response<ArrayList<Paises>>
-                ) {
-                    val paises = response.body()
-
-                    val nome: ArrayList<String> = ArrayList()
-
-                    paises?.forEach {
-                        nome.add(it.nome.abreviado)
-                    }
-
-                    spinner.adapter = ArrayAdapter(
-                        this@CreateActivity,
-                        R.layout.support_simple_spinner_dropdown_item,
-                        nome
-                    )
-                    progressbar.visibility = View.GONE
-                }
-
-                override fun onFailure(call: Call<ArrayList<Paises>>, t: Throwable) {
-                    makeText("Falha ao listar os países.")
-                    progressbar.visibility = View.GONE
-                }
-            })
-        } catch (e: Exception) {
-            withContext(Dispatchers.Main) {
-                Log.d(TAG, "getCountries: ${e.message}")
-                makeText(e.message.toString())
-            }
-        }
     }
 
     private fun registerTask() {
@@ -153,15 +154,21 @@ class CreateActivity : AppCompatActivity() {
         return str.setError(error)
     }
 
-    private fun createTask(task: Task) {
-        db.collection(userId).document().set(task)
-            .addOnSuccessListener {
-                makeText("Task criada com sucesso!")
-                finish()
+    private fun createTask(task: Task) = CoroutineScope(Dispatchers.IO).launch {
+        try {
+            db.collection(userId).document().set(task)
+                .addOnSuccessListener {
+                    makeText("Task criada com sucesso!")
+                    finish()
+                }
+                .addOnFailureListener { e ->
+                    makeText("Erro ao criar a task.")
+                    Log.e(TAG, "createTask: ${e.message}")
+                }
+        } catch (e: FirebaseError) {
+            withContext(Dispatchers.Main) {
+                throw FirebaseError("Erro ao criar a task.", e)
             }
-            .addOnFailureListener { e ->
-                makeText("Erro ao criar a task.")
-                Log.e(TAG, "createTask: ${e.message}")
-            }
+        }
     }
 }

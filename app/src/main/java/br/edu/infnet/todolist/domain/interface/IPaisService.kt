@@ -7,5 +7,5 @@ import retrofit2.http.GET
 interface IPaisService {
 
     @GET("paises")
-    fun getAllCountries() : Call<ArrayList<Paises>>
+    suspend fun getAllCountries() : ArrayList<Paises>
 }

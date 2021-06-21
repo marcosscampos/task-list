@@ -12,6 +12,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.cardview.widget.CardView
 import androidx.recyclerview.widget.RecyclerView
 import br.edu.infnet.todolist.R
+import br.edu.infnet.todolist.domain.exception.FirebaseError
 import br.edu.infnet.todolist.domain.models.task.Task
 import br.edu.infnet.todolist.ui.update.UpdateActivity
 import com.google.android.material.button.MaterialButton
@@ -79,55 +80,75 @@ class GetAllTasksAdapter(
         }
     }
 
-    private fun readTask(id: String, task: Task) {
-        val user = Firebase.auth.currentUser
-        var userId = ""
-        for (profile in user?.providerData!!) {
-            userId = profile.uid
-        }
-
-        val builder = AlertDialog.Builder(context)
-        builder.setTitle(task.title)
-        builder.setMessage(getString(task))
-        db.collection(userId).document(id).get().addOnSuccessListener {
-            if (it.exists()) {
-                task.title = it.getString("title").toString()
-                task.description = it.getString("description").toString()
-                task.country = it.getString("country").toString()
+    private fun readTask(id: String, task: Task) = CoroutineScope(Dispatchers.Main).launch {
+        try {
+            val user = Firebase.auth.currentUser
+            var userId = ""
+            for (profile in user?.providerData!!) {
+                userId = profile.uid
             }
-        }.addOnFailureListener {
-            makeText("Erro ao retornar os dados.")
-        }
 
-        builder.setNegativeButton("Fechar") { _, _ -> {} }
-        builder.show()
+            val builder = AlertDialog.Builder(context)
+            builder.setTitle(task.title)
+            builder.setMessage(getString(task))
+            withContext(Dispatchers.IO) {
+                db.collection(userId).document(id).get().addOnSuccessListener {
+                    if (it.exists()) {
+                        task.title = it.getString("title").toString()
+                        task.description = it.getString("description").toString()
+                        task.country = it.getString("country").toString()
+                    }
+                }.addOnFailureListener {
+                    makeText("Erro ao retornar os dados.")
+                }
+            }
+
+            builder.setNegativeButton("Fechar") { _, _ -> {} }
+            builder.show()
+        } catch (e: FirebaseError) {
+            withContext(Dispatchers.Main) {
+                makeText("Erro ao retornar os dados do Firebase.")
+                throw FirebaseError("Erro ao retornar os dados do Firebase.", e)
+            }
+        }
     }
 
 
-    private fun deleteTask(id: String, position: Int) {
-        val user = Firebase.auth.currentUser
-        var userId = ""
-        for (profile in user?.providerData!!) {
-            userId = profile.uid
-        }
-
+    private fun deleteTask(id: String, position: Int) = CoroutineScope(Dispatchers.Main).launch {
         val builder = AlertDialog.Builder(context)
+
         builder.setTitle("Deletar tarefa")
         builder.setMessage("Tem certeza que deseja deletar essa tarefa?")
 
-        builder.setPositiveButton("Sim") { _, _ ->
-            db.collection(userId).document(id).delete()
-                .addOnSuccessListener {
-                    makeText("Tarefa excluída com sucesso!")
+        withContext(Dispatchers.IO) {
+            try {
+                val user = Firebase.auth.currentUser
+                var userId = ""
+                for (profile in user?.providerData!!) {
+                    userId = profile.uid
+                }
 
-                    tasks.removeAt(position)
-                    notifyItemRemoved(position)
-                    notifyItemRangeChanged(position, tasks.size)
+                builder.setPositiveButton("Sim") { _, _ ->
+                    db.collection(userId).document(id).delete()
+                        .addOnSuccessListener {
+                            makeText("Tarefa excluída com sucesso!")
+
+                            tasks.removeAt(position)
+                            notifyItemRemoved(position)
+                            notifyItemRangeChanged(position, tasks.size)
+                        }
+                        .addOnFailureListener { e ->
+                            makeText("Erro ao excluir tarefa.")
+                            Log.e("ACTIVITY_ERROR", "deleteTask: ${e.message}")
+                        }
                 }
-                .addOnFailureListener { e ->
-                    makeText("Erro ao excluir tarefa.")
-                    Log.e("ACTIVITY_ERROR", "deleteTask: ${e.message}")
+
+            } catch (e: FirebaseError) {
+                withContext(Dispatchers.Main) {
+                    makeText("Erro ao excluir o dado do Firebase.")
+                    throw FirebaseError("Erro ao excluir o dado do Firebase.", e)
                 }
+            }
         }
         builder.setNegativeButton("Não") { _, _ -> {} }
         builder.show()

@@ -1,34 +1,27 @@
 package br.edu.infnet.todolist.ui.update
 
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import br.edu.infnet.todolist.R
-import br.edu.infnet.todolist.domain.`interface`.IPaisService
-import br.edu.infnet.todolist.domain.models.pais.Paises
+import br.edu.infnet.todolist.domain.exception.FirebaseError
 import br.edu.infnet.todolist.domain.models.task.Task
-import br.edu.infnet.todolist.domain.service.RetrofitService
+import br.edu.infnet.todolist.ui.viewmodel.CountryViewModel
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.android.synthetic.main.activity_create.*
 import kotlinx.android.synthetic.main.activity_update.*
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
+import kotlinx.coroutines.*
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 
 class UpdateActivity : AppCompatActivity() {
-    private var TAG = "UpdateActivity"
     private lateinit var db: FirebaseFirestore
     private var toolbar: Toolbar? = null
     private var userId = ""
@@ -65,6 +58,24 @@ class UpdateActivity : AppCompatActivity() {
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
+        val mViewModel = ViewModelProvider.NewInstanceFactory()
+            .create(CountryViewModel::class.java)
+        initCountryList(mViewModel)
+
+        mViewModel.progressBar.observe(this) { isShown ->
+            if (isShown) {
+                progressbar.visibility = View.VISIBLE
+            } else {
+                progressbar.visibility = View.GONE
+            }
+        }
+
+        mViewModel.toast.observe(this) {
+            it?.let {
+                makeText(it)
+                mViewModel.onToastShown()
+            }
+        }
 
         val user = Firebase.auth.currentUser
         for (profile in user?.providerData!!) {
@@ -73,7 +84,6 @@ class UpdateActivity : AppCompatActivity() {
 
         db = FirebaseFirestore.getInstance()
         configActionBar()
-        getCountries()
         returnDataFromFirestore(task_id)
 
         updateTask.setOnClickListener {
@@ -87,44 +97,27 @@ class UpdateActivity : AppCompatActivity() {
         finish()
     }
 
-    private fun getCountries() = CoroutineScope(Dispatchers.IO).launch {
-        progressbar.visibility = View.VISIBLE
+    private fun initCountryList(mViewModel: CountryViewModel) {
+        lifecycleScope.launch {
+            mViewModel.init()
+            delay(500)
+            initAdapter(mViewModel)
+        }
+    }
 
-        try {
-            val call = RetrofitService.getInstance().create(IPaisService::class.java)
-            call.getAllCountries().enqueue(object : Callback<ArrayList<Paises>> {
-                override fun onResponse(
-                    call: Call<ArrayList<Paises>>,
-                    response: Response<ArrayList<Paises>>
-                ) {
-                    val paises = response.body()!!
-                    val nome: ArrayList<String> = ArrayList()
-
-                    paises.forEach {
-                        nome.add(it.nome.abreviado)
-                    }
-
-                    spinner.adapter = ArrayAdapter(
-                        this@UpdateActivity,
-                        R.layout.support_simple_spinner_dropdown_item,
-                        nome
-                    )
-                    spinner.setSelection(task.countryId.toInt())
-                    progressbar.visibility = View.GONE
-                }
-
-                override fun onFailure(call: Call<ArrayList<Paises>>, t: Throwable) {
-                    makeText("Falha ao listar os países.")
-                    Log.e(TAG, "onFailure: ${t.message}")
-                    progressbar.visibility = View.GONE
-                }
-            })
-        } catch (e: Exception) {
-            withContext(Dispatchers.Main) {
-                Log.d(TAG, "getCountries: ${e.message}")
-                makeText(e.message.toString())
+    private fun initAdapter(mViewModel: CountryViewModel) {
+        val paises = ArrayList<String>()
+        mViewModel.countryList.observe(this) { it ->
+            it.forEach {
+                paises.add(it.nome.abreviado)
             }
         }
+        spinner.adapter = ArrayAdapter(
+            this@UpdateActivity,
+            R.layout.support_simple_spinner_dropdown_item,
+            paises
+        )
+        spinner.setSelection(task.countryId.toInt())
     }
 
     private fun update() {
@@ -175,9 +168,9 @@ class UpdateActivity : AppCompatActivity() {
             }.addOnFailureListener {
                 makeText("Erro ao retornar os dados.")
             }
-        } catch (e: Exception) {
+        } catch (e: FirebaseError) {
             withContext(Dispatchers.Main) {
-                makeText(e.message.toString())
+                throw FirebaseError("Erro ao retornar os dados.", e)
             }
         }
     }
@@ -190,7 +183,7 @@ class UpdateActivity : AppCompatActivity() {
         taskMap["countryId"] = task.countryId
         taskMap["date"] = task.date
 
-        try{
+        try {
             db.collection(userId).document(id).set(taskMap)
                 .addOnSuccessListener {
                     makeText("Tarefa Atualizada!")
