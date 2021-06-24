@@ -93,20 +93,32 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_below="@id/progressbarCreateActivity"
-        android:layout_marginTop="35dp"
+        android:layout_marginTop="10dp"
         android:gravity="center"
         android:maxLength="300"
         android:text="Country"
         android:textStyle="bold" />
 
-    <Spinner
-        android:id="@+id/spinner"
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+        android:backgroundTint="@color/charcoalGrey"
+        app:boxStrokeColor="@color/androidgray"
+        app:helperTextTextColor="@color/charcoalGrey"
+        app:hintTextColor="@color/charcoalGrey"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/viewCountry"
-        android:layout_marginLeft="10dp"
+
         android:layout_marginTop="10dp"
-        android:layout_marginRight="10dp" />
+        android:layout_marginRight="10dp"
+        android:layout_marginLeft="10dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/viewCountry">
+
+        <AutoCompleteTextView
+            android:id="@+id/autoComplete"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="text" />
+    </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/createTask"

@@ -15,6 +15,10 @@ class CountryViewModel : ViewModel() {
     val countryList: LiveData<ArrayList<Paises>>
         get() = _countryList
 
+    private val _country = MutableLiveData<Paises>()
+    val country: LiveData<Paises>
+        get() = _country
+
     private val _progressBar = MutableLiveData<Boolean>()
     val progressBar: LiveData<Boolean>
         get() = _progressBar
@@ -35,7 +39,7 @@ class CountryViewModel : ViewModel() {
         }
     }
 
-    fun onToastShown() {
+    suspend fun onToastShown() {
         _toast.value = ""
     }
 

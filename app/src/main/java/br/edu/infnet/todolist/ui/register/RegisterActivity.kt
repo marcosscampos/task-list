@@ -3,6 +3,7 @@ package br.edu.infnet.todolist.ui.register
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Log
 import android.util.Patterns
 import android.widget.EditText
 import android.widget.Toast
@@ -20,7 +21,6 @@ class RegisterActivity : AppCompatActivity() {
     private val NAME_VALIDATION_MSG = "Entre com um nome válido"
     private val EMAIL_VALIDATION_MSG = "Entre com um email válido"
     private val PASSWORD_VALIDATION_MSG = "Entre com uma senha válida"
-    private val PASSWORD_NOT_MATCH_MSG = "Senhas não conferem"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,7 +37,7 @@ class RegisterActivity : AppCompatActivity() {
         var nome = cadastroNomeTextView.text.toString()
         var email = cadastroEmailTextView.text.toString()
         var password = cadastroSenha1TextView.text.toString()
-        var confirmPassword = cadastroSenha2TextView.text.toString()
+        Log.d("SENHA RUIM", "finalizarCadastro: $password")
 
 
         if (nome.isEmpty()) {
@@ -60,22 +60,12 @@ class RegisterActivity : AppCompatActivity() {
             cadastroSenha1TextView.requestFocus()
         }
 
-        if (confirmPassword.isEmpty()) {
-            setError(cadastroSenha2TextView, PASSWORD_VALIDATION_MSG)
-            cadastroSenha2TextView.requestFocus()
-        }
-
-        if (password != confirmPassword) {
-            setError(cadastroSenha2TextView, PASSWORD_NOT_MATCH_MSG)
-            cadastroSenha2TextView.requestFocus()
-        }
-
-        if (email.isNotEmpty() && confirmPassword.isNotEmpty()) {
+        if (email.isNotEmpty() && password.isNotEmpty()) {
             auth.createUserWithEmailAndPassword(
                 email,
-                confirmPassword
+                password
             )
-                .addOnCompleteListener(this) { task ->
+                .addOnCompleteListener(this@RegisterActivity) { task ->
                     if (task.isSuccessful) {
                         val profileUpdates = userProfileChangeRequest {
                             displayName = nome

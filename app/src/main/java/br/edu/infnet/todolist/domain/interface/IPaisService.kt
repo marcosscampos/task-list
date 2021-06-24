@@ -1,11 +1,13 @@
 package br.edu.infnet.todolist.domain.`interface`
 
 import br.edu.infnet.todolist.domain.models.pais.Paises
-import retrofit2.Call
-import retrofit2.http.GET
+import retrofit2.http.*
 
 interface IPaisService {
 
-    @GET("paises")
-    suspend fun getAllCountries() : ArrayList<Paises>
+    @GET("all")
+    suspend fun getAllCountries(): ArrayList<Paises>
+
+    @GET("name/{name}")
+    suspend fun getCountry(@Path("name") name: String) : Paises
 }

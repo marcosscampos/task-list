@@ -17,9 +17,6 @@ data class Task(
     @SerializedName("country")
     var country: String = "",
 
-    @SerializedName("countryId")
-    var countryId: String = "1",
-
     @SerializedName("date")
     var date: Date = Calendar.getInstance().time
 )

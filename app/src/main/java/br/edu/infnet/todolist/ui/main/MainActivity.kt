@@ -21,6 +21,7 @@ import br.edu.infnet.todolist.domain.adapter.GetAllTasksAdapter
 import br.edu.infnet.todolist.domain.models.task.Task
 import br.edu.infnet.todolist.ui.create.CreateActivity
 import br.edu.infnet.todolist.ui.login.LoginActivity
+import com.facebook.login.LoginManager
 import com.google.android.material.navigation.NavigationView
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
@@ -37,6 +38,7 @@ class MainActivity : AppCompatActivity(), SwipeRefreshLayout.OnRefreshListener {
     private lateinit var auth: FirebaseAuth
     private lateinit var db: FirebaseFirestore
     private lateinit var progressBar: ProgressBar
+    private lateinit var loginManager: LoginManager
     private var userId = ""
 
     private var drawer: DrawerLayout? = null
@@ -55,6 +57,8 @@ class MainActivity : AppCompatActivity(), SwipeRefreshLayout.OnRefreshListener {
 
         auth = FirebaseAuth.getInstance()
         db = FirebaseFirestore.getInstance()
+        loginManager = LoginManager.getInstance()
+
         val user = Firebase.auth.currentUser
         for (profile in user?.providerData!!) {
             userId = profile.uid
@@ -62,6 +66,7 @@ class MainActivity : AppCompatActivity(), SwipeRefreshLayout.OnRefreshListener {
 
         setNavigationView()
         getTasks()
+        updateTask()
 
         floating.setOnClickListener {
             val intent = Intent(applicationContext, CreateActivity::class.java)
@@ -87,6 +92,7 @@ class MainActivity : AppCompatActivity(), SwipeRefreshLayout.OnRefreshListener {
 
     private fun logout() {
         auth.signOut()
+        loginManager.logOut()
         startActivity(Intent(this, LoginActivity::class.java))
         finish()
     }
@@ -139,6 +145,18 @@ class MainActivity : AppCompatActivity(), SwipeRefreshLayout.OnRefreshListener {
         }
     }
 
+    private fun updateTask() {
+        db.collection(userId).addSnapshotListener { snapshot, e ->
+            if(e != null) {
+                return@addSnapshotListener
+            }
+
+            if(snapshot != null && snapshot.documentChanges.count() > 0) {
+                getTasks()
+            }
+        }
+    }
+
     private fun getTasks() {
         progressBar.visibility = View.VISIBLE
         swipe.isRefreshing = true
@@ -156,6 +174,7 @@ class MainActivity : AppCompatActivity(), SwipeRefreshLayout.OnRefreshListener {
                 recyclerView.layoutManager = layoutManager
                 recyclerView.adapter = GetAllTasksAdapter(this@MainActivity, tarefas, db)
                 swipe.isRefreshing = false
+                recyclerView.adapter?.notifyDataSetChanged()
 
                 progressBar.visibility = View.GONE
             }

@@ -1,50 +1,47 @@
 package br.edu.infnet.todolist.ui.create
 
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.view.inputmethod.InputMethodManager
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import br.edu.infnet.todolist.R
-import br.edu.infnet.todolist.domain.`interface`.IPaisService
 import br.edu.infnet.todolist.domain.exception.FirebaseError
-import br.edu.infnet.todolist.domain.models.pais.Paises
 import br.edu.infnet.todolist.domain.models.task.Task
-import br.edu.infnet.todolist.domain.service.RetrofitService
 import br.edu.infnet.todolist.ui.viewmodel.CountryViewModel
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.android.synthetic.main.activity_create.*
-import kotlinx.android.synthetic.main.task_card.*
-import kotlinx.coroutines.*
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
-import java.util.*
-import kotlin.collections.ArrayList
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class CreateActivity : AppCompatActivity() {
     private var TAG = "CreateActivity"
     private lateinit var db: FirebaseFirestore
     private var toolbar: Toolbar? = null
     private var userId = ""
-    private lateinit var spinner: Spinner
     private lateinit var progressbar: ProgressBar
     private lateinit var task: Task
+    private lateinit var autoCompleteText: AutoCompleteTextView
 
     private var NAME_VALIDATION_MSG = "Campo título não pode ficar em branco."
     private var DESCRIPTION_VALIDATION_MSG = "Campo descrição não pode ficar em branco."
+    private var AUTOCOMPLETE_VALIDATION_MSG = "Campo País não pode ficar em branco."
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_create)
         toolbar = findViewById(R.id.toolbarDetail)
-        spinner = findViewById(R.id.spinner)
         progressbar = findViewById(R.id.progressbarCreateActivity)
+        autoCompleteText = findViewById(R.id.autoComplete)
         task = Task()
 
         val user = Firebase.auth.currentUser
@@ -55,23 +52,10 @@ class CreateActivity : AppCompatActivity() {
         val mViewModel = ViewModelProvider.NewInstanceFactory()
             .create(CountryViewModel::class.java)
 
-        spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(
-                parent: AdapterView<*>?,
-                view: View?,
-                position: Int,
-                id: Long
-            ) {
-
-                task.countryId = id.toString()
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
-        }
-
         db = FirebaseFirestore.getInstance()
         configActionBar()
         initCountryList(mViewModel)
+        setKeyboard()
 
         mViewModel.progressBar.observe(this) { isShown ->
             if (isShown) {
@@ -84,7 +68,6 @@ class CreateActivity : AppCompatActivity() {
         mViewModel.toast.observe(this) {
             it?.let {
                 makeText(it)
-                mViewModel.onToastShown()
             }
         }
 
@@ -96,7 +79,6 @@ class CreateActivity : AppCompatActivity() {
     private fun initCountryList(mViewModel: CountryViewModel) {
         lifecycleScope.launch {
             mViewModel.init()
-            delay(500)
             initAdapter(mViewModel)
         }
     }
@@ -105,13 +87,16 @@ class CreateActivity : AppCompatActivity() {
         val paises = ArrayList<String>()
         mViewModel.countryList.observe(this) { it ->
             it.forEach {
-                paises.add(it.nome.abreviado)
+                paises.add(it.name)
             }
         }
-        spinner.adapter = ArrayAdapter(
-            this@CreateActivity,
-            R.layout.support_simple_spinner_dropdown_item,
-            paises
+
+        autoCompleteText.setAdapter(
+            ArrayAdapter(
+                this,
+                R.layout.list_item,
+                paises
+            )
         )
     }
 
@@ -123,7 +108,7 @@ class CreateActivity : AppCompatActivity() {
     private fun registerTask() {
         task.title = editTitle.text.toString()
         task.description = editDescription.text.toString()
-        task.country = spinner.selectedItem.toString()
+        task.country = autoCompleteText.text.toString()
 
         if (editTitle.text.isEmpty()) {
             setError(editTitle, NAME_VALIDATION_MSG)
@@ -135,9 +120,23 @@ class CreateActivity : AppCompatActivity() {
             editDescription.requestFocus()
         }
 
+        if (autoCompleteText.text.isNullOrEmpty()) {
+            setError(autoComplete, AUTOCOMPLETE_VALIDATION_MSG)
+            autoComplete.requestFocus()
+        }
+
         if (task.title.isNotEmpty() && task.description.isNotEmpty()) {
             createTask(task)
         }
+    }
+
+    private fun setKeyboard() {
+        autoCompleteText.onItemClickListener =
+            AdapterView.OnItemClickListener { parent, view, position, id ->
+                val input: InputMethodManager = getSystemService(
+                    Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                input.hideSoftInputFromWindow(view.applicationWindowToken, 0)
+            }
     }
 
     private fun configActionBar() {

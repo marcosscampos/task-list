@@ -1,7 +1,9 @@
 package br.edu.infnet.todolist.ui.update
 
+import android.content.Context
 import android.os.Bundle
 import android.view.View
+import android.view.inputmethod.InputMethodManager
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
@@ -27,40 +29,28 @@ class UpdateActivity : AppCompatActivity() {
     private var userId = ""
     private var task_id = ""
     private lateinit var task: Task
-    private lateinit var spinner: Spinner
     private lateinit var progressbar: ProgressBar
+    private lateinit var autoCompleteText: AutoCompleteTextView
 
     private var NAME_VALIDATION_MSG = "Campo título não pode ficar em branco."
     private var DESCRIPTION_VALIDATION_MSG = "Campo descrição não pode ficar em branco."
+    private var AUTOCOMPLETE_VALIDATION_MSG = "Campo País não pode ficar em branco."
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_update)
 
         toolbar = findViewById(R.id.toolbarUpdate)
-        spinner = findViewById(R.id.spinnerUpdate)
         progressbar = findViewById(R.id.progressbarUpdateActivity)
         task = Task()
 
         task_id = intent.extras?.getString("id")!!
-
-        spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(
-                parent: AdapterView<*>?,
-                view: View?,
-                position: Int,
-                id: Long
-            ) {
-
-                task.countryId = position.toString()
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
-        }
+        autoCompleteText = findViewById(R.id.autoCompleteUpdate)
 
         val mViewModel = ViewModelProvider.NewInstanceFactory()
             .create(CountryViewModel::class.java)
         initCountryList(mViewModel)
+        setKeyboard()
 
         mViewModel.progressBar.observe(this) { isShown ->
             if (isShown) {
@@ -73,7 +63,6 @@ class UpdateActivity : AppCompatActivity() {
         mViewModel.toast.observe(this) {
             it?.let {
                 makeText(it)
-                mViewModel.onToastShown()
             }
         }
 
@@ -105,25 +94,35 @@ class UpdateActivity : AppCompatActivity() {
         }
     }
 
+    private fun setKeyboard() {
+        autoCompleteText.onItemClickListener =
+            AdapterView.OnItemClickListener { parent, view, position, id ->
+                val input: InputMethodManager = getSystemService(
+                    Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                input.hideSoftInputFromWindow(view.applicationWindowToken, 0)
+            }
+    }
+
     private fun initAdapter(mViewModel: CountryViewModel) {
         val paises = ArrayList<String>()
         mViewModel.countryList.observe(this) { it ->
             it.forEach {
-                paises.add(it.nome.abreviado)
+                paises.add(it.name)
             }
         }
-        spinner.adapter = ArrayAdapter(
-            this@UpdateActivity,
-            R.layout.support_simple_spinner_dropdown_item,
-            paises
+        autoCompleteText.setAdapter(
+            ArrayAdapter(
+                this@UpdateActivity,
+                R.layout.list_item,
+                paises
+            )
         )
-        spinner.setSelection(task.countryId.toInt())
     }
 
     private fun update() {
         task.title = editTitleUpdate.text.toString()
         task.description = editDescriptionUpdate.text.toString()
-        task.country = spinner.selectedItem.toString()
+        task.country = autoCompleteText.text.toString()
 
         if (editTitleUpdate.text.isEmpty()) {
             setError(editTitleUpdate, NAME_VALIDATION_MSG)
@@ -133,6 +132,11 @@ class UpdateActivity : AppCompatActivity() {
         if (editDescriptionUpdate.text.isEmpty()) {
             setError(editDescriptionUpdate, DESCRIPTION_VALIDATION_MSG)
             editDescriptionUpdate.requestFocus()
+        }
+
+        if (autoCompleteText.text.isNullOrEmpty()) {
+            setError(autoCompleteUpdate, AUTOCOMPLETE_VALIDATION_MSG)
+            autoCompleteUpdate.requestFocus()
         }
 
         if (task.title.isNotEmpty() && task.description.isNotEmpty()) {
@@ -160,10 +164,11 @@ class UpdateActivity : AppCompatActivity() {
                 if (it.exists()) {
                     task.title = it.getString("title").toString()
                     task.description = it.getString("description").toString()
-                    task.countryId = it.getString("countryId").toString()
+                    task.country = it.getString("country").toString()
 
                     editTitleUpdate.setText(task.title)
                     editDescriptionUpdate.setText(task.description)
+                    autoCompleteUpdate.setText(task.country)
                 }
             }.addOnFailureListener {
                 makeText("Erro ao retornar os dados.")
@@ -179,8 +184,7 @@ class UpdateActivity : AppCompatActivity() {
         val taskMap: HashMap<String, Any> = HashMap()
         taskMap["title"] = task.title
         taskMap["description"] = task.description
-        taskMap["country"] = spinner.selectedItem.toString()
-        taskMap["countryId"] = task.countryId
+        taskMap["country"] = task.country
         taskMap["date"] = task.date
 
         try {
