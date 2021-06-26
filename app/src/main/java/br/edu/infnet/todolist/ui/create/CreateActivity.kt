@@ -125,7 +125,7 @@ class CreateActivity : AppCompatActivity() {
             autoComplete.requestFocus()
         }
 
-        if (task.title.isNotEmpty() && task.description.isNotEmpty()) {
+        if (task.title.isNotEmpty() && task.description.isNotEmpty() && autoCompleteText.text.isNotEmpty()) {
             createTask(task)
         }
     }

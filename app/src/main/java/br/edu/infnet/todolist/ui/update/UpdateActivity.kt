@@ -139,7 +139,7 @@ class UpdateActivity : AppCompatActivity() {
             autoCompleteUpdate.requestFocus()
         }
 
-        if (task.title.isNotEmpty() && task.description.isNotEmpty()) {
+        if (task.title.isNotEmpty() && task.description.isNotEmpty() && autoCompleteText.text.isNotEmpty()) {
             updateTask(task_id)
         }
     }
